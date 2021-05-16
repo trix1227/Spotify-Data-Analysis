@@ -1,0 +1,240 @@
+---
+title: "Spotify Data Analysis"
+author: "Trixie"
+date: "16 5 2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+# Installing packages
+
+```{r Packages, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+```
+
+## Reading the data and take a quick look
+
+```{r message=FALSE}
+Spotify <- read_csv("top10s.csv")
+```
+
+## I opt to rename the column X1 with numbers
+
+```{r}
+Spotify <-Spotify%>%rename(Number = X1)
+summary(Spotify)
+```
+
+## let's check the genre
+
+I would like to see how the genre is distributed and next I will separate the first and the rest of the genre 
+```{r}
+table(Spotify$`top genre`)
+Spotify <-Spotify%>%separate((`top genre`),c("variable","genre"),extra='merge')
+```
+
+Now, lets regroup and simplify the genre
+
+```{r}
+other <-c("complextro","downtempo","brostep","electro","electronic","escape","folk-pop","hollywood","house","irish","permanent","neo","metropolis","tropical")
+Spotify$genre[Spotify$variable %in% other]  <- 'Other'
+Spotify$genre[Spotify$variable =='hip']  <- 'hip hop'
+Spotify$genre[Spotify$variable =='latin']  <- 'latin'
+Spotify$genre[Spotify$variable =='boy']  <- 'pop'
+Spotify$genre[Spotify$variable =='french']  <- 'pop'
+Spotify$genre[Spotify$variable =='electropop']  <- 'pop'
+Spotify$genre[Spotify$variable =='pop']  <- 'pop'
+Spotify$genre[Spotify$genre=='contemporary r&b'] <-'r&b'
+Spotify$genre[Spotify$genre=='room'] <-'Other'
+table(Spotify$genre)
+
+miss <- colSums(is.na(Spotify))
+print(miss[miss>0])
+
+Spotify <-na.omit(Spotify)
+```
+
+And now I have the simple genre and I will begin my data exploration 
+
+## Data exploration
+I wanna know which song is the most popular song? Which artist has the most popular song from 2010-2019? and which artist has most popular song in 2019
+By running the codes I know that, the most popular song in 2019 is "Memories by Maroon 5", Katy Perry has the most popular songs from 2010 - 2019 and Ed Sheeran has the most popular songs in 2019
+
+```{r}
+most_popular <- Spotify%>%arrange(desc(pop))
+most_popular
+
+plot_most_popular <-most_popular%>%filter(year==2019)%>%ggplot(aes(artist))+geom_bar()+coord_flip()+ggtitle("Artist & #Pop song 2019")
+plot_most_popular
+
+most_popular_artist <- most_popular%>%count(artist)%>%arrange(desc(n))
+most_popular_artist%>%head(15)%>%ggplot(aes(x=reorder(artist,n),y=n))+geom_col(fill="skyblue")+ggtitle("15 Most Popular Artist")+coord_flip()
+
+```
+
+## Measure Analysis 
+
+##1. Analyze the duration 
+Most of the song has a duration of 3-4 mins
+There is an outlier in pop category, we have song with most/min duration 
+The longest song (424s) is by Justin Timberlake "TKO" & the shortest song (134s) is by Justin Bieber "Mark My Words"
+Both records are by Justins :)
+
+```{r}
+duration <-Spotify%>%ggplot(aes(x=reorder(genre,dur),y=dur))+geom_boxplot(fill="skyblue")+ggtitle("Song Duration")+theme_light()
+duration
+
+max_pop <-Spotify%>%filter(dur>=400)%>%group_by(artist)%>%summarise(title,dur)
+max_pop
+
+min_pop <-Spotify%>%filter(dur<=150)%>%group_by(artist)%>%summarise(title,dur)
+min_pop
+```
+
+
+##2. Analyze the bpm
+Most songs have bpm around 100-150 bpm, which some few songs from pop genre has bpm >200bpm
+Those are : LA love by Fergie, How Ya Doin? by Little Mix and FourFiveSeconds by Rihanna
+
+```{r}
+bpm <- Spotify%>%ggplot(aes(x=reorder(genre,bpm),y=bpm))+geom_boxplot(fill="skyblue")+ggtitle("bpm Distribution")+theme_light()
+bpm
+
+bpm_most <-Spotify%>%filter(bpm>=200)%>%group_by(artist)%>%summarise(title,bpm)
+bpm_most
+```
+
+##3. Analyze the energy
+Not a big suprise here, the genre pop, latin, dance & rock are the genre with median >= 75
+So if we need a pick me up songs perhaps looks from one of this genre to boost our mood, next lets find from which artist? 
+Martin Solveig Hello and Jonas Brother Pom Pom are the songs with highest energy, at 98
+
+```{r}
+energy <- Spotify%>%ggplot(aes(x=reorder(genre,nrgy),nrgy))+geom_boxplot(fill="skyblue")+ggtitle("Energy Distribution")+theme_light()
+energy
+
+most_nrgy_artist <-Spotify%>%arrange(desc(nrgy))%>%select(artist,nrgy,title)
+most_nrgy_artist
+
+energy_artist <-most_nrgy_artist%>%head(20)%>%ggplot(aes(x=reorder(artist,nrgy),y=nrgy))+geom_boxplot()+coord_flip()+theme_light()
+energy_artist
+
+```
+##4. Analyze the danceability
+Edm & Latin are the genre with highest median danceability score. Again, no big suprises. Their median score is close to 75
+The top songs with highest danceability score are : Bad Liar by Selena Gomez & Drip by Cardi B 
+
+```{r}
+dance <- Spotify%>%ggplot(aes(x=reorder(genre,dnce),dnce))+geom_boxplot(fill="skyblue")+ggtitle("Danceability Distribution")+theme_light()
+dance
+
+most_dnce_artist <-Spotify%>%arrange(desc(dnce))%>%select(artist,dnce,title)
+most_dnce_artist
+
+dance_artist <-most_dnce_artist%>%head(20)%>%ggplot(aes(x=reorder(artist,dnce),y=dnce))+geom_boxplot()+coord_flip()+theme_light()
+dance_artist
+
+```
+
+##5. Analyze the value
+Latin has the highest median for value, but the top songs with highest value score are : Mmm Yeah by Austin Mahone and Theres nothing holding me back by Shawn Mendes
+
+```{r}
+val <- Spotify%>%filter(!dB==-60)%>%ggplot(aes(x=reorder(genre,val),y=val))+geom_boxplot(fill="skyblue")+ggtitle("Positivity Distribution")+theme_light()
+val
+
+most_val_artist <-Spotify%>%arrange(desc(val))%>%select(artist,val,title)
+most_val_artist
+
+artist <-most_val_artist%>%head(20)%>%ggplot(aes(x=reorder(artist,val),y=val))+geom_boxplot()+coord_flip()+theme_light()
+artist
+
+```
+##6. Analyze the speech
+Before running the code, I take a guess it should be rap genre with the highest median value
+And running the code confirms this hunch, and I noticed there are a lot of outlier for pop genre thus I will pull out the songs 
+
+```{r}
+spch <- Spotify%>%ggplot(aes(x=reorder(genre,spch),y=spch))+geom_boxplot(fill="skyblue")+ggtitle("Speech Distribution")+theme_light()
+spch
+
+spch_pop <-Spotify%>%filter(spch>=20)%>%group_by(artist)%>%summarise(title,spch)
+spch_pop
+
+```
+
+
+#Now I would like to test some hypthoesis and see if the variables are indeed correlated 
+##1 Energy & danceability by genre, the higher the energy the song must be more dancable
+From the graph and the correlation calculation, I can see that the correlation is a bit weak (0.16) 
+I guess this make sense as some songs such as rock genre has lot of energy but it is not danceable 
+
+
+```{r}
+nrgy_dnce <-Spotify%>%ggplot(aes(x=nrgy,y=dnce))+geom_point()+ggtitle("Energy/Danceability")+theme_light()+geom_smooth(se=FALSE)
+nrgy_dnce
+
+#let's check the correlation
+cor(Spotify$nrgy,Spotify$dnce)
+
+```
+##2 Positivity & Energy.. the more positive song, will convey more energy
+I am quite please to see that the correlation is 0.41 for this hypthoesis and particularly from genre such as dance/hip hop and pop we can see this 
+Though for hip hop the line is not that well fit 
+
+
+```{r}
+val_nrgy <-Spotify%>%ggplot(aes(x=val,y=nrgy))+geom_point()+ggtitle("Positivity/Energy")+theme_light()+geom_smooth(se=FALSE)
+val_nrgy
+
+#let's check the correlation
+cor(Spotify$val,Spotify$nrgy)
+
+
+#the correlation result is 0.41. let's check if there are any genre in particular
+val_nrgy <-Spotify%>%ggplot(aes(x=val,y=nrgy))+geom_point()+ggtitle("Positivity/Energy")+theme_light()+geom_smooth(se=FALSE)+facet_wrap(~genre)
+val_nrgy
+```
+
+##3 Energy & Acoustic. The lower the energy the lower the acoustic  
+Wow! Look at that, the correlation is at -0.563!
+
+
+```{r}
+acous_nrgy <-Spotify%>%ggplot(aes(x=acous,y=nrgy))+geom_point()+ggtitle("Acoustic/Energy")+theme_light()+geom_smooth(se=FALSE)
+acous_nrgy
+
+#let's check the correlation
+cor(Spotify$acous,Spotify$nrgy)
+```
+##4 Last, I would like to check bpm & danceability 
+Before running the code and seeing rsult from point 1, I would already expect that there should not be any strong correlation between the two 
+And from the correlation we notice that the result is -0.13, but somehow from the plot it is hard to conclude anything
+
+
+```{r}
+acous_nrgy <-Spotify%>%ggplot(aes(x=acous,y=nrgy))+geom_point()+ggtitle("Acoustic/Energy")+theme_light()+geom_smooth(se=FALSE)
+acous_nrgy
+
+#let's check the correlation
+cor(Spotify$acous,Spotify$nrgy)
+```
+
+##Summary : 
+#1. Katy Perry is the artist with the most top songs from 2010 - 2019, with 17 songs 
+#2. Maroons 5 Memories is the most popular song from 2010-2019 with score of 99 
+#3. Ed Sheeran is the artist with most top song from 2019, 5 songs 
+#4. The longest song (424s) is by Justin Timberlake "TKO" & the shortest song (134s) is by Justin Bieber "Mark My Words"
+#5. Martin Solveig Hello and Jonas Brother Pom Pom are the songs with highest energy, at 98. While for the genre, go for : Dance, Latin & Rock
+#6. Mmm Yeah by Austin Mahone and Theres nothing holding me back by Shawn Mendes are the songs with highest value. While for the genre go for : Edm, Rock & Latin 
+#7. There are a correlation between value & energy (cor at 0.41), the highest the value so does the energy. And the genre showing this are : Dance, Hip Hop & Pop
+#8. The are a correlation betwen energy & accoustic, the lower the energy so does the acoustic (cor at -0.56)
+#9. So next time when I need some mood booster I will def goes for any Danc, Hip Hop or Pop genre on Spotify!
+
